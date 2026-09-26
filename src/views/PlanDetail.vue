@@ -30,6 +30,11 @@ function onDelete() {
     router.push('/plans')
   }
 }
+
+function onRemoveMember(member) {
+  const tip = `确认删除成员「${member.name}」吗？其名下行程记录将转为未归属，行李清单也会一并删除。`
+  if (confirm(tip)) store.removeMember(plan.value.id, member.id)
+}
 </script>
 
 <template>
@@ -93,7 +98,10 @@ function onDelete() {
       <div class="ov-members">
         <span class="text-muted">出行成员</span>
         <div class="member-chips">
-          <span v-for="m in plan.members" :key="m.id" class="tag tag-blue">{{ m.name }}</span>
+          <span v-for="m in plan.members" :key="m.id" class="tag tag-blue member-chip">
+            {{ m.name }}
+            <button type="button" class="chip-remove" title="删除成员" @click="onRemoveMember(m)">×</button>
+          </span>
         </div>
       </div>
     </div>
@@ -237,5 +245,23 @@ function onDelete() {
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 8px;
+}
+
+.member-chip {
+  gap: 2px;
+}
+
+.chip-remove {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.55;
+}
+
+.chip-remove:hover {
+  opacity: 1;
 }
 </style>

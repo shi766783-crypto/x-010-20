@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useTravelStore } from '../../stores/travel'
 import { EXPENSE_CATEGORIES } from '../../constants'
-import { planTotalSpend, planSpendBreakdown } from '../../services/selectors'
+import { planTotalSpend, planSpendBreakdown, planMemberSpendBreakdown } from '../../services/selectors'
 import { formatMoney, formatDate } from '../../utils/format'
 import Modal from '../common/Modal.vue'
 import ImageUpload from '../common/ImageUpload.vue'
@@ -19,11 +19,17 @@ const records = computed(() =>
 
 const totalSpend = computed(() => planTotalSpend(props.plan))
 const breakdown = computed(() => planSpendBreakdown(props.plan))
+const memberSpend = computed(() => planMemberSpendBreakdown(props.plan))
 const budget = computed(() => Number(props.plan.budget) || 0)
 const balance = computed(() => budget.value - totalSpend.value)
 
 function recordTotal(r) {
   return EXPENSE_CATEGORIES.reduce((s, { key }) => s + (Number(r[key]) || 0), 0)
+}
+
+// 归属成员已被删除时按未归属展示
+function memberNameOf(record) {
+  return props.plan.members?.find((m) => m.id === record.memberId)?.name || ''
 }
 
 // ===== 新增 / 编辑表单 =====
@@ -35,6 +41,7 @@ function emptyForm() {
   return {
     date: '',
     itinerary: '',
+    memberId: '',
     transportCost: '',
     mealCost: '',
     ticketCost: '',
@@ -56,6 +63,7 @@ function openEdit(record) {
   Object.assign(form, {
     date: record.date,
     itinerary: record.itinerary,
+    memberId: record.memberId || '',
     transportCost: record.transportCost || '',
     mealCost: record.mealCost || '',
     ticketCost: record.ticketCost || '',
@@ -72,6 +80,7 @@ function save() {
   const record = {
     date: form.date,
     itinerary: form.itinerary,
+    memberId: form.memberId || null,
     transportCost: Number(form.transportCost) || 0,
     mealCost: Number(form.mealCost) || 0,
     ticketCost: Number(form.ticketCost) || 0,
@@ -116,6 +125,42 @@ function save() {
       >{{ label }} {{ formatMoney(breakdown[label]) }}</span>
     </div>
 
+    <!-- 成员花费汇总：各成员合计 + 未归属 = 总花费 -->
+    <div v-if="records.length" class="member-spend">
+      <h3 class="card-title">成员花费</h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>成员</th>
+            <th v-for="{ label } in EXPENSE_CATEGORIES" :key="label">{{ label }}</th>
+            <th>合计</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="bucket in memberSpend" :key="bucket.memberId || 'unattributed'">
+            <td>
+              <span class="tag" :class="bucket.memberId ? 'tag-blue' : 'tag-gray'">
+                {{ bucket.name }}
+              </span>
+            </td>
+            <td v-for="{ label } in EXPENSE_CATEGORIES" :key="label">
+              {{ bucket.breakdown[label] ? formatMoney(bucket.breakdown[label]) : '—' }}
+            </td>
+            <td><strong>{{ formatMoney(bucket.total) }}</strong></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>合计</td>
+            <td v-for="{ label } in EXPENSE_CATEGORIES" :key="label">
+              {{ breakdown[label] ? formatMoney(breakdown[label]) : '—' }}
+            </td>
+            <td><strong>{{ formatMoney(totalSpend) }}</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
     <div class="flex-between mb-16">
       <h3 class="card-title" style="margin: 0">行程记录</h3>
       <button type="button" class="btn btn-primary btn-sm" @click="openAdd">+ 记录行程</button>
@@ -125,7 +170,12 @@ function save() {
     <div v-if="records.length" class="record-list">
       <div v-for="r in records" :key="r.id" class="record">
         <div class="record-main">
-          <div class="record-date">{{ formatDate(r.date) }}</div>
+          <div class="record-date">
+            {{ formatDate(r.date) }}
+            <span class="tag record-member" :class="memberNameOf(r) ? 'tag-blue' : 'tag-gray'">
+              {{ memberNameOf(r) || '未归属' }}
+            </span>
+          </div>
           <div class="record-title">{{ r.itinerary || '（无行程内容）' }}</div>
           <div class="record-costs">
             <span
@@ -159,6 +209,13 @@ function save() {
       <div class="form-group">
         <label class="form-label">行程内容</label>
         <input v-model="form.itinerary" class="input" placeholder="例如：游览西湖、逛老街" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">归属成员（可选）</label>
+        <select v-model="form.memberId" class="select">
+          <option value="">未归属</option>
+          <option v-for="m in plan.members" :key="m.id" :value="m.id">{{ m.name }}</option>
+        </select>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -236,6 +293,20 @@ function save() {
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 20px;
+}
+
+.member-spend {
+  margin-bottom: 20px;
+}
+
+.member-spend tfoot td {
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  font-weight: 500;
+}
+
+.record-member {
+  margin-left: 8px;
 }
 
 .record-list {

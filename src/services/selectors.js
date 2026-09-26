@@ -28,6 +28,35 @@ export function planSpendBreakdown(plan) {
   }, {})
 }
 
+// 单次出行按成员汇总花费（含未归属），用于家庭出行对账
+export function planMemberSpendBreakdown(plan) {
+  const records = plan.records || []
+  const makeBucket = (memberId, name) => ({
+    memberId,
+    name,
+    total: 0,
+    breakdown: EXPENSE_CATEGORIES.reduce((acc, { label }) => {
+      acc[label] = 0
+      return acc
+    }, {}),
+  })
+
+  const buckets = (plan.members || []).map((m) => makeBucket(m.id, m.name))
+  const unattributed = makeBucket(null, '未归属')
+
+  records.forEach((r) => {
+    // 归属成员已被删除（或数据异常）时，计入未归属
+    const bucket = buckets.find((b) => b.memberId === r.memberId) || unattributed
+    EXPENSE_CATEGORIES.forEach(({ key, label }) => {
+      const amount = toNum(r[key])
+      bucket.breakdown[label] += amount
+      bucket.total += amount
+    })
+  })
+
+  return [...buckets, unattributed]
+}
+
 // 单次出行行李打包完成率（各成员平均）
 export function planPackingRate(plan) {
   const lists = plan.luggage || []
