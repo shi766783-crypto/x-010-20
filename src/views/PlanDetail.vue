@@ -16,6 +16,24 @@ const router = useRouter()
 const plan = computed(() => store.planById(route.params.id))
 const activeTab = ref('overview')
 
+const addingMember = ref(false)
+const newMemberName = ref('')
+
+function onAddMember() {
+  const name = newMemberName.value.trim()
+  if (!name) return
+  store.addMember(plan.value.id, name)
+  newMemberName.value = ''
+  addingMember.value = false
+}
+
+function onRemoveMember(member) {
+  const message = `确认移除成员「${member.name}」吗？其名下的行程记录将转为未归属，行李清单一并移除。`
+  if (confirm(message)) {
+    store.removeMember(plan.value.id, member.id)
+  }
+}
+
 const tabs = [
   { key: 'overview', label: '概览' },
   { key: 'luggage', label: '行李清单' },
@@ -93,7 +111,28 @@ function onDelete() {
       <div class="ov-members">
         <span class="text-muted">出行成员</span>
         <div class="member-chips">
-          <span v-for="m in plan.members" :key="m.id" class="tag tag-blue">{{ m.name }}</span>
+          <span v-for="m in plan.members" :key="m.id" class="tag tag-blue member-chip">
+            {{ m.name }}
+            <button
+              type="button"
+              class="chip-remove"
+              title="移除成员"
+              @click="onRemoveMember(m)"
+            >×</button>
+          </span>
+          <template v-if="addingMember">
+            <input
+              v-model="newMemberName"
+              class="input member-input"
+              placeholder="成员姓名"
+              @keyup.enter="onAddMember"
+            />
+            <button type="button" class="btn btn-primary btn-sm" @click="onAddMember">添加</button>
+            <button type="button" class="btn btn-ghost btn-sm" @click="addingMember = false">取消</button>
+          </template>
+          <button v-else type="button" class="btn btn-ghost btn-sm" @click="addingMember = true">
+            + 添加成员
+          </button>
         </div>
       </div>
     </div>
@@ -236,6 +275,32 @@ function onDelete() {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
   margin-top: 8px;
+}
+
+.member-chip {
+  gap: 6px;
+}
+
+.chip-remove {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.6;
+}
+
+.chip-remove:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+.member-input {
+  width: 140px;
+  padding: 5px 10px;
+  font-size: 13px;
 }
 </style>

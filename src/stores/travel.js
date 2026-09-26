@@ -97,6 +97,31 @@ export const useTravelStore = defineStore('travel', {
       this.plans = this.plans.filter((p) => p.id !== id)
     },
 
+    // ===== 成员管理 =====
+    addMember(planId, name) {
+      const plan = this.planById(planId)
+      if (!plan) return
+      const member = { id: uid(), name }
+      plan.members.push(member)
+      plan.memberCount = plan.members.length
+      plan.luggage.push({
+        memberId: member.id,
+        items: generateLuggageTemplate({ tripType: plan.tripType, days: plan.days }),
+      })
+    },
+
+    removeMember(planId, memberId) {
+      const plan = this.planById(planId)
+      if (!plan) return
+      // 名下行程记录转为未归属，记录本身保留，按成员汇总随之归入未归属
+      ;(plan.records || []).forEach((r) => {
+        if (r.memberId === memberId) r.memberId = null
+      })
+      plan.members = plan.members.filter((m) => m.id !== memberId)
+      plan.luggage = (plan.luggage || []).filter((l) => l.memberId !== memberId)
+      plan.memberCount = plan.members.length
+    },
+
     // ===== 行李清单 =====
     _findLuggageList(plan, memberId) {
       let list = plan.luggage.find((l) => l.memberId === memberId)
